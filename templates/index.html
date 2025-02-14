@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Starlink Location Monitor</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#000000">
+    
+    <!-- PWA Meta Tags -->
+    <link rel="manifest" href="./manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="apple-mobile-web-app-title" content="Starlink Monitor">
+    <link rel="apple-touch-icon" href="./static/icons/icon-192x192.png">
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Añadir estos meta tags al principio del head -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Inter', sans-serif;
+        }
+
+        body {
+            background-color: #000;
+            color: #fff;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 80px auto 0;
+            padding: 20px;
+        }
+
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding: 20px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #fff;
+        }
+
+        .logo {
+            height: 80px;
+            width: auto;
+            filter: brightness(0) invert(1);
+            margin-right: 20px;
+        }
+
+        .content-wrapper {
+            display: grid;
+            grid-template-columns: 400px 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 1024px) {
+            .content-wrapper {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .info-panel {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 12px;
+            padding: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .status {
+            padding: 12px;
+            margin-bottom: 15px;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+        }
+
+        .status.error {
+            background-color: rgba(255, 59, 48, 0.1);
+            color: #ff3b30;
+            border: 1px solid rgba(255, 59, 48, 0.2);
+        }
+
+        .status:not(.error) {
+            background-color: rgba(52, 199, 89, 0.1);
+            color: #34c759;
+            border: 1px solid rgba(52, 199, 89, 0.2);
+        }
+
+        .coordinates-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .coordinates-box {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 8px;
+            padding: 15px;
+            transition: all 0.3s ease;
+            position: relative;
+            border-left: 4px solid #333; /* Color por defecto para desconectado */
+            cursor: pointer;
+        }
+
+        .coordinates-box.active {
+            border-left: 4px solid #34c759; /* Verde para activo */
+        }
+
+        .coordinates-box h3 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #333; /* Color por defecto para desconectado */
+            display: inline-block;
+        }
+
+        .status-indicator.active {
+            background-color: #34c759; /* Verde para activo */
+        }
+
+        #map {
+            height: 600px;
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Personalización del mapa */
+        .leaflet-container {
+            background: #1a1a1a !important;
+        }
+
+        .leaflet-control-attribution {
+            background: rgba(0, 0, 0, 0.7) !important;
+            color: rgba(255, 255, 255, 0.7) !important;
+        }
+
+        .leaflet-control-attribution a {
+            color: rgba(255, 255, 255, 0.9) !important;
+        }
+
+        /* Animación de carga */
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+
+        /* Responsive ajustes adicionales */
+        @media (max-width: 768px) {
+            .container {
+                margin: 20px auto 80px;
+                padding: 10px;
+            }
+
+            .header {
+                flex-direction: column;
+                text-align: center;
+                gap: 15px;
+            }
+
+            .info-panel {
+                padding: 15px;
+            }
+
+            #map {
+                height: 400px;
+            }
+        }
+
+        /* Modificar los estilos del marcador personalizado */
+        .custom-marker {
+            position: relative;
+        }
+
+        .marker-dot {
+            width: 16px;  /* Aumentado de 12px */
+            height: 16px; /* Aumentado de 12px */
+            background: #007AFF;
+            border: 3px solid #FFFFFF;  /* Añadido borde blanco */
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.4),  /* Añadido doble sombra */
+                        0 0 15px rgba(0, 122, 255, 0.7);
+            z-index: 2;
+        }
+
+        .marker-pulse {
+            width: 50px;    /* Aumentado de 24px */
+            height: 50px;   /* Aumentado de 24px */
+            background: rgba(0, 122, 255, 0.3);  /* Aumentado opacidad */
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+            z-index: 1;
+        }
+
+        @keyframes pulse-ring {
+            0% {
+                transform: translate(-50%, -50%) scale(0.7);
+                opacity: 0.8;
+            }
+            80%, 100% {
+                transform: translate(-50%, -50%) scale(3.5);  /* Aumentado de 2 a 3.5 */
+                opacity: 0;
+            }
+        }
+
+        .coordinates-info {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, opacity 0.3s ease-out, margin 0.3s ease-out;
+            opacity: 0;
+            margin-top: 0;
+        }
+
+        .coordinates-info.show {
+            max-height: 100px;
+            opacity: 1;
+            margin-top: 15px;
+        }
+
+        .coordinates-info p {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.8);
+        }
+
+        .coordinates-info p span:first-child {
+            color: rgba(255, 255, 255, 0.5);
+        }
+
+        .install-button {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            z-index: 1000;
+        }
+
+        .install-button button {
+            background: #007AFF;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 500;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .install-button button:hover {
+            background: #0056b3;
+        }
+
+        /* Estilos para la navegación */
+        .navbar, .mobile-nav {
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            z-index: 1000;
+            padding: 10px 20px;
+        }
+
+        .navbar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 5px 0;
+        }
+
+        .nav-logo {
+            height: 50px;
+            filter: brightness(0) invert(1);
+            margin-right: 40px;
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            list-style: none;
+            margin: 0;
+            padding: 0;
+            gap: 30px;
+            flex-grow: 1;
+            justify-content: center;
+        }
+
+        .nav-right {
+            display: flex;
+            align-items: center;
+            gap: 30px;
+            margin-left: 40px;
+        }
+
+        .nav-links a, .nav-icon-link {
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-size: 14px;
+            font-weight: 500;
+            padding: 10px;
+            border-radius: 8px;
+            transition: all 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .nav-links a:hover, .nav-icon-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .nav-links .icon, .nav-right .icon {
+            font-size: 20px;
+            margin-bottom: 4px;
+        }
+
+        /* Estilos específicos para el menú móvil */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mobile-nav .nav-links {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .mobile-nav .nav-links li {
+            flex: 1;
+            max-width: none;
+        }
+
+        .mobile-nav .nav-links a {
+            font-size: 12px;
+            padding: 8px 4px;
+        }
+
+        .mobile-nav .nav-links .icon {
+            font-size: 18px;
+        }
+
+        /* Media query para móviles */
+        @media (max-width: 768px) {
+            .navbar {
+                display: none;
+            }
+
+            .mobile-nav {
+                display: block;
+            }
+
+            .mobile-nav .nav-links {
+                gap: 5px;
+            }
+
+            .container {
+                margin-top: 20px;
+                margin-bottom: 80px;
+            }
+
+            .install-button {
+                bottom: 90px;
+            }
+
+            /* Quitar el logo del header en móvil ya que ahora está en el navbar */
+            .header .logo {
+                display: none;
+            }
+        }
+
+        /* Estilos específicos para desktop */
+        @media (min-width: 769px) {
+            .nav-container {
+                max-width: 1200px;
+                padding: 5px 20px;
+            }
+
+            .nav-links a, .nav-right a {
+                flex-direction: row;
+                font-size: 15px;
+                padding: 8px 16px;
+            }
+
+            /* Ocultar iconos en desktop */
+            .nav-links .icon, .nav-right .icon {
+                display: none;
+            }
+
+            /* Ajustar espaciado */
+            .nav-links {
+                gap: 20px;
+            }
+
+            .nav-right {
+                gap: 20px;
+            }
+        }
+
+        /* Mantener iconos solo en móvil */
+        @media (max-width: 768px) {
+            .mobile-nav .nav-links a {
+                flex-direction: column;
+            }
+
+            .mobile-nav .icon {
+                display: block;
+                font-size: 20px;
+                margin-bottom: 4px;
+            }
+        }
+
+        .mobile-header {
+            display: none;
+            background: rgba(0, 0, 0, 0.95);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 10px 15px;
+        }
+
+        .mobile-header-content {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+        }
+
+        .mobile-logo {
+            height: 35px;
+            filter: brightness(0) invert(1);
+        }
+
+        .mobile-selector {
+            flex: 1;
+            max-width: 200px;
+        }
+
+        .antenna-select {
+            width: 100%;
+            padding: 8px 40px 8px 12px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: 50px;
+            color: black;
+            font-size: 12px;
+            appearance: none;
+            -webkit-appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3e%3cpath d='M7 10l5 5 5-5z'/%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            background-size: 16px;
+            background-color: white;
+        }
+
+        .mobile-config-btn {
+            background: none;
+            border: none;
+            color: rgba(255, 255, 255, 0.7);
+            font-size: 20px;
+            padding: 8px;
+            cursor: pointer;
+            width: 40px;
+            height: 40px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .mobile-config-btn:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-header {
+                display: block;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                z-index: 1000;
+            }
+
+            .container {
+                margin-top: 65px; /* Ajustar para el nuevo header más compacto */
+            }
+        }
+
+        /* Modificar los estilos para móvil */
+        @media (max-width: 768px) {
+            /* Ocultar el panel de información completo */
+            .info-panel {
+                display: none;
+            }
+
+            /* Ajustar el contenedor y mapa */
+            .content-wrapper {
+                grid-template-columns: 1fr;
+                gap: 0;
+            }
+
+            #map {
+                height: calc(100vh - 130px); /* Ajustar altura considerando header y nav móvil */
+                border-radius: 0; /* Quitar bordes redondeados en móvil */
+            }
+
+            .container {
+                margin-top: 65px;
+                margin-bottom: 60px;
+                padding: 0; /* Quitar padding en móvil */
+            }
+
+            /* Ajustar el botón de instalación */
+            .install-button {
+                bottom: 70px;
+            }
+        }
+
+        /* Asegurar que el mapa ocupe todo el espacio disponible */
+        @media (max-width: 768px) {
+            .content-wrapper {
+                height: 100%;
+            }
+
+            #map {
+                width: 100vw;
+                margin-left: -0px;
+                margin-right: -0px;
+            }
+        }
+
+        /* Ajustar los estilos para el layout móvil */
+        @media (max-width: 768px) {
+            body {
+                overflow: hidden; /* Prevenir scroll del body */
+                position: fixed;
+                width: 100%;
+                height: 100%;
+            }
+
+            .container {
+                margin: 55px 0 0 0;
+                padding: 0;
+                height: calc(100vh - 55px); /* Altura total menos el header */
+                overflow: hidden;
+            }
+
+            .content-wrapper {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+
+            #map {
+                height: calc(100vh - 120px) !important; /* Altura total menos header y navbar */
+                margin: 0;
+                border-radius: 0;
+                border: none;
+            }
+
+            /* Ajustar posición del navbar móvil */
+            .mobile-nav {
+                position: fixed;
+                bottom: 20px;
+                left: 0;
+                right: 0;
+                background: rgba(0, 0, 0, 0.95);
+                backdrop-filter: blur(10px);
+                height: 65px;
+                z-index: 1001;
+            }
+
+            /* Ajustar controles del mapa */
+            .leaflet-control-container .leaflet-bottom {
+                bottom: 75px; /* Por encima del navbar */
+            }
+
+            /* Ajustar botón de instalación */
+            .install-button {
+                bottom: 75px;
+            }
+
+            /* Ocultar elementos innecesarios */
+            .info-panel {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <img src="./static/Starlink_Logo.png" alt="Starlink Logo" class="nav-logo">
+            <ul class="nav-links">
+                <li><a href="#"><span class="icon"><i class="fas fa-map-marker-alt"></i></span>Location</a></li>
+                <li><a href="#"><span class="icon"><i class="fas fa-route"></i></span>Rutas</a></li>
+                <li><a href="#"><span class="icon"><i class="fas fa-chart-bar"></i></span>Estadísticas</a></li>
+                <li><a href="#"><span class="icon"><i class="fas fa-cog"></i></span>Configuración</a></li>
+            </ul>
+            <div class="nav-right">
+                <a href="#" class="nav-icon-link"><span class="icon"><i class="fas fa-headset"></i></span>Soporte</a>
+                <a href="#" class="nav-icon-link"><span class="icon"><i class="fas fa-user-circle"></i></span>Cuenta</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="mobile-header">
+        <div class="mobile-header-content">
+            <img src="./static/Starlink_Logo.png" alt="Starlink Logo" class="mobile-logo">
+            <div class="mobile-selector">
+                <select id="antennaSelector" class="antenna-select">
+                    <option value="" disabled>Seleccionar Antena</option>
+                    <option value="oficina">OFICINA EMBARCACIONES</option>
+                    <option value="riocaribe">RM RIO CARIBE</option>
+                    <option value="merida">RM MÉRIDA</option>
+                    <option value="niolo">RM NIOLO</option>
+                </select>
+            </div>
+            <button class="mobile-config-btn">
+                <i class="fas fa-cog"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="container">
+
+
+        <div id="installButton" class="install-button" style="display: none;">
+            <button onclick="installPWA()">Instalar aplicación</button>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="info-panel">
+                <div id="status" class="status">Iniciando sistema...</div>
+                <div class="coordinates-container">
+                    <div id="coordinates-oficina" class="coordinates-box active">
+                        <h3>
+                            <span class="status-indicator active"></span>
+                            OFICINA EMBARCACIONES
+                        </h3>
+                        <div class="coordinates-info">
+                            <!-- La información se insertará aquí dinámicamente -->
+                        </div>
+                    </div>
+                    <div id="coordinates-riocaribe" class="coordinates-box">
+                        <h3>
+                            <span class="status-indicator"></span>
+                            RM RIO CARIBE
+                        </h3>
+                    </div>
+                    <div id="coordinates-merida" class="coordinates-box">
+                        <h3>
+                            <span class="status-indicator"></span>
+                            RM MÉRIDA
+                        </h3>
+                    </div>
+                    <div id="coordinates-niolo" class="coordinates-box">
+                        <h3>
+                            <span class="status-indicator"></span>
+                            RM NIOLO
+                        </h3>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="map"></div>
+        </div>
+    </div>
+
+    <nav class="mobile-nav">
+        <ul class="nav-links">
+            <li><a href="#"><span class="icon"><i class="fas fa-map-marker-alt"></i></span>Location</a></li>
+            <li><a href="#"><span class="icon"><i class="fas fa-route"></i></span>Rutas</a></li>
+            <li><a href="#"><span class="icon"><i class="fas fa-chart-bar"></i></span>Estadísticas</a></li>
+            <li><a href="#"><span class="icon"><i class="fas fa-cog"></i></span>Configuración</a></li>
+        </ul>
+    </nav>
+
+    <!-- Leaflet JavaScript -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <script>
+        // Inicializar el mapa con vista satelital
+        var map = L.map('map').setView([0, 0], 2);
+        
+        // Capa base de satélite de Google
+        var googleSat = L.tileLayer('http://{s}.google.com/vt/lyrs=s&x={x}&y={y}&z={z}', {
+            maxZoom: 20,
+            subdomains: ['mt0', 'mt1', 'mt2', 'mt3'],
+            attribution: '© Google'
+        });
+
+        // Capa de calles de OpenStreetMap
+        var osm = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '© OpenStreetMap contributors'
+        });
+
+        // Capa de satélite de ESRI como respaldo
+        var esriSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            maxZoom: 19,
+            attribution: '© Esri'
+        });
+
+        // Añadir las capas al mapa
+        googleSat.addTo(map);
+
+        // Control de capas
+        var baseMaps = {
+            "Satélite": googleSat,
+            "Calles": osm,
+            "Satélite (Alternativo)": esriSat
+        };
+
+        L.control.layers(baseMaps).addTo(map);
+
+        // Estilo personalizado para el marcador
+        var customIcon = L.divIcon({
+            className: 'custom-marker',
+            html: '<div class="marker-dot"></div><div class="marker-pulse"></div>',
+            iconSize: [20, 20],
+            iconAnchor: [10, 10]
+        });
+
+        var markers = {};
+        var firstLoad = true;
+
+        // Añadir estilos para el marcador personalizado
+        const styleSheet = document.createElement('style');
+        styleSheet.textContent = `
+            .custom-marker {
+                position: relative;
+            }
+            .marker-dot {
+                width: 16px;
+                height: 16px;
+                background: #007AFF;
+                border: 3px solid #FFFFFF;
+                border-radius: 50%;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                box-shadow: 0 0 0 4px rgba(0, 122, 255, 0.4),
+                           0 0 15px rgba(0, 122, 255, 0.7);
+                z-index: 2;
+            }
+            .marker-pulse {
+                width: 50px;
+                height: 50px;
+                background: rgba(0, 122, 255, 0.3);
+                border-radius: 50%;
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+                z-index: 1;
+            }
+            @keyframes pulse-ring {
+                0% {
+                    transform: translate(-50%, -50%) scale(0.7);
+                    opacity: 0.8;
+                }
+                80%, 100% {
+                    transform: translate(-50%, -50%) scale(3.5);
+                    opacity: 0;
+                }
+            }
+        `;
+        document.head.appendChild(styleSheet);
+
+        function updateStatus(message, isError = false) {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = 'status' + (isError ? ' error' : '');
+            statusDiv.textContent = message;
+        }
+        
+        function updateLocation() {
+            updateStatus('Actualizando ubicaciones...', false);
+            document.querySelectorAll('.coordinates-box').forEach(box => box.classList.add('loading'));
+            
+            fetch('/get_location')
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelectorAll('.coordinates-box').forEach(box => box.classList.remove('loading'));
+                    
+                    if (data.error) {
+                        updateStatus(data.error, true);
+                        // Marcar todas las antenas como inactivas cuando hay error
+                        updateAntennaStatus(false);
+                        return;
+                    }
+                    
+                    // Datos de ejemplo para las otras antenas
+                    const locations = {
+                        'oficina': {
+                            name: 'Oficina Embarcaciones',
+                            lat: 8.286873,  // Coordenada real
+                            lon: -62.838161, // Coordenada real
+                            alt: data.altitude
+                        },
+                        'riocaribe': {
+                            name: 'RM Rio Caribe',
+                            lat: 8.286873 + 0.001, // Pequeño offset al norte
+                            lon: -62.838161 + 0.001,
+                            alt: data.altitude + 10
+                        },
+                        'merida': {
+                            name: 'RM Merida',
+                            lat: 8.286873 - 0.001, // Pequeño offset al sur
+                            lon: -62.838161 - 0.001,
+                            alt: data.altitude + 20
+                        },
+                        'niolo': {
+                            name: 'RM Niolo',
+                            lat: 8.286873 + 0.002, // Pequeño offset al noreste
+                            lon: -62.838161 - 0.002,
+                            alt: data.altitude + 30
+                        }
+                    };
+                    
+                    // Actualizar información y marcadores para cada antena
+                    Object.entries(locations).forEach(([id, location]) => {
+                        const box = document.getElementById(`coordinates-${id}`);
+                        const isActive = id === 'oficina';
+                        
+                        // Actualizar panel de información
+                        const infoHtml = `
+                            <h3>
+                                <span class="status-indicator ${isActive ? 'active' : ''}"></span>
+                                ${location.name}
+                            </h3>
+                            <div class="coordinates-info ${expandedCards.has(id) ? 'show' : ''}">
+                                <p><span>Latitud:</span> <span>${location.lat.toFixed(6)}°</span></p>
+                                <p><span>Longitud:</span> <span>${location.lon.toFixed(6)}°</span></p>
+                                <p><span>Altitud:</span> <span>${location.alt ? location.alt.toFixed(1) + ' m' : 'N/A'}</span></p>
+                            </div>
+                        `;
+                        box.innerHTML = infoHtml;
+                        
+                        // Actualizar o crear marcador solo para antenas activas
+                        if (isActive) {
+                            if (markers[id]) {
+                                markers[id].setLatLng([location.lat, location.lon]);
+                            } else {
+                                markers[id] = L.marker([location.lat, location.lon], {
+                                    icon: customIcon
+                                }).addTo(map).bindPopup(location.name);
+                            }
+                        } else {
+                            // Remover marcador si existe y la antena está inactiva
+                            if (markers[id]) {
+                                map.removeLayer(markers[id]);
+                                delete markers[id];
+                            }
+                        }
+                    });
+                    
+                    // Centrar el mapa solo en la primera carga
+                    if (firstLoad) {
+                        map.setView([data.latitude, data.longitude], 16);
+                        firstLoad = false;
+                    }
+                    
+                    updateStatus('Sistema conectado y funcionando', false);
+                    // Actualizar estado de las antenas
+                    updateAntennaStatus(true);
+                })
+                .catch(error => {
+                    document.querySelectorAll('.coordinates-box').forEach(box => box.classList.remove('loading'));
+                    updateStatus('Error de conexión: ' + error, true);
+                    // Marcar todas las antenas como inactivas cuando hay error
+                    updateAntennaStatus(false);
+                });
+        }
+        
+        // Función para actualizar el estado visual de las antenas
+        function updateAntennaStatus(isConnected) {
+            document.querySelectorAll('.coordinates-box').forEach(box => {
+                const id = box.id.replace('coordinates-', '');
+                const isOfficina = id === 'oficina';
+                
+                // Actualizar clase active de la tarjeta
+                box.classList.toggle('active', isConnected && isOfficina);
+                
+                // Actualizar indicador de estado
+                const statusIndicator = box.querySelector('.status-indicator');
+                if (statusIndicator) {
+                    statusIndicator.classList.toggle('active', isConnected && isOfficina);
+                }
+                
+                // Remover marcador del mapa si la conexión falla
+                if (!isConnected && markers[id]) {
+                    map.removeLayer(markers[id]);
+                    delete markers[id];
+                }
+            });
+        }
+
+        // Verificar que el servidor está funcionando
+        fetch('/test')
+            .then(response => response.json())
+            .then(data => {
+                updateStatus('Conectando con el plato...', false);
+                updateLocation();
+                setInterval(updateLocation, 10000);
+            })
+            .catch(error => {
+                updateStatus('Error de conexión con el servidor: ' + error, true);
+                updateAntennaStatus(false);
+            });
+
+        // Añadir esta variable para rastrear el estado de expansión de las tarjetas
+        var expandedCards = new Set();
+
+        // Modificar la función setupCardListeners
+        function setupCardListeners() {
+            document.querySelectorAll('.coordinates-box').forEach(box => {
+                box.addEventListener('click', () => {
+                    const info = box.querySelector('.coordinates-info');
+                    const id = box.id.replace('coordinates-', '');
+                    if (info) {
+                        info.classList.toggle('show');
+                        if (info.classList.contains('show')) {
+                            expandedCards.add(id);
+                        } else {
+                            expandedCards.delete(id);
+                        }
+                    }
+                });
+            });
+        }
+
+        // Llamar a setupCardListeners después de actualizar el contenido
+        setupCardListeners();
+
+        // Registrar Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(registration => {
+                        console.log('Service Worker registrado:', registration);
+                    })
+                    .catch(error => {
+                        console.log('Error al registrar Service Worker:', error);
+                    });
+            });
+        }
+
+        let deferredPrompt;
+
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevenir que Chrome muestre la instalación automática
+            e.preventDefault();
+            // Guardar el evento para usarlo después
+            deferredPrompt = e;
+            // Mostrar el botón de instalación
+            document.getElementById('installButton').style.display = 'block';
+        });
+
+        function installPWA() {
+            // Ocultar el botón de instalación
+            document.getElementById('installButton').style.display = 'none';
+            // Mostrar el prompt de instalación
+            deferredPrompt.prompt();
+            // Esperar la respuesta del usuario
+            deferredPrompt.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('Usuario aceptó la instalación');
+                }
+                deferredPrompt = null;
+            });
+        }
+
+        // Añadir después de la inicialización del mapa
+        document.getElementById('antennaSelector').addEventListener('change', function(e) {
+            const selectedId = e.target.value;
+            if (!selectedId) return;
+
+            const locations = {
+                'oficina': {
+                    lat: 8.286873,
+                    lon: -62.838161
+                },
+                'riocaribe': {
+                    lat: 8.286873 + 0.001,
+                    lon: -62.838161 + 0.001
+                },
+                'merida': {
+                    lat: 8.286873 - 0.001,
+                    lon: -62.838161 - 0.001
+                },
+                'niolo': {
+                    lat: 8.286873 + 0.002,
+                    lon: -62.838161 - 0.002
+                }
+            };
+
+            const location = locations[selectedId];
+            if (location) {
+                map.setView([location.lat, location.lon], 16);
+                
+                // Mostrar el marcador correspondiente
+                Object.keys(markers).forEach(key => {
+                    map.removeLayer(markers[key]);
+                    delete markers[key];
+                });
+
+                if (selectedId === 'oficina') {
+                    markers[selectedId] = L.marker([location.lat, location.lon], {
+                        icon: customIcon
+                    }).addTo(map).bindPopup(e.target.options[e.target.selectedIndex].text);
+                }
+            }
+        });
+    </script>
+</body>
+</html> 
