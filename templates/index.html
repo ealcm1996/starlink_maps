@@ -637,6 +637,103 @@
                 display: none;
             }
         }
+
+        /* Estilos para las notificaciones */
+        .notification {
+            position: fixed;
+            bottom: 95px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 12px 20px;
+            border-radius: 8px;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(10px);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.2s ease;
+            max-width: 40%;
+            min-width: 300px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .notification.show {
+            opacity: 1;
+        }
+
+        .notification .icon {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .notification.error {
+            border-left: 4px solid #ff3b30;
+        }
+
+        .notification.success {
+            border-left: 4px solid #34c759;
+        }
+
+        .notification.error .icon {
+            color: #ff3b30;
+        }
+
+        .notification.success .icon {
+            color: #34c759;
+        }
+
+        .notification-content {
+            flex: 1;
+        }
+
+        .notification-title {
+            font-weight: 600;
+            font-size: 14px;
+            margin-bottom: 2px;
+        }
+
+        .notification-message {
+            font-size: 12px;
+            opacity: 0.8;
+        }
+
+        .notification-close {
+            color: rgba(255, 255, 255, 0.6);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 18px;
+        }
+
+        .notification-close:hover {
+            color: white;
+        }
+
+        /* Añadir estilos para el marcador de error */
+        .marker-dot.error {
+            background: #ff3b30;
+            box-shadow: 0 0 0 4px rgba(255, 59, 48, 0.4),
+                        0 0 15px rgba(255, 59, 48, 0.7);
+        }
+
+        .marker-pulse.error {
+            background: rgba(255, 59, 48, 0.2);
+            animation: pulse-ring-error 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+        }
+
+        @keyframes pulse-ring-error {
+            0% {
+                transform: translate(-50%, -50%) scale(0.7);
+                opacity: 0.8;
+            }
+            80%, 100% {
+                transform: translate(-50%, -50%) scale(3.5);
+                opacity: 0;
+            }
+        }
     </style>
 </head>
 <body>
@@ -767,56 +864,28 @@
         L.control.layers(baseMaps).addTo(map);
 
         // Estilo personalizado para el marcador
-        var customIcon = L.divIcon({
+        const customIcon = L.divIcon({
             className: 'custom-marker',
-            html: '<div class="marker-dot"></div><div class="marker-pulse"></div>',
-            iconSize: [20, 20],
-            iconAnchor: [10, 10]
+            html: `
+                <div class="marker-pulse"></div>
+                <div class="marker-dot"></div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
+        });
+
+        const errorIcon = L.divIcon({
+            className: 'custom-marker',
+            html: `
+                <div class="marker-pulse error"></div>
+                <div class="marker-dot error"></div>
+            `,
+            iconSize: [40, 40],
+            iconAnchor: [20, 20]
         });
 
         var markers = {};
         var firstLoad = true;
-
-        // Añadir estilos para el marcador personalizado
-        const styleSheet = document.createElement('style');
-        styleSheet.textContent = `
-            .custom-marker {
-                position: relative;
-            }
-            .marker-dot {
-                width: 12px;
-                height: 12px;
-                background: #007AFF;
-                border-radius: 50%;
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                box-shadow: 0 0 10px rgba(0, 122, 255, 0.5);
-            }
-            .marker-pulse {
-                width: 24px;
-                height: 24px;
-                background: rgba(0, 122, 255, 0.2);
-                border-radius: 50%;
-                position: absolute;
-                top: 50%;
-                left: 50%;
-                transform: translate(-50%, -50%);
-                animation: pulse-ring 2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
-            }
-            @keyframes pulse-ring {
-                0% {
-                    transform: translate(-50%, -50%) scale(0.5);
-                    opacity: 0.5;
-                }
-                80%, 100% {
-                    transform: translate(-50%, -50%) scale(2);
-                    opacity: 0;
-                }
-            }
-        `;
-        document.head.appendChild(styleSheet);
 
         function updateStatus(message, isError = false) {
             const statusDiv = document.getElementById('status');
@@ -824,22 +893,88 @@
             statusDiv.textContent = message;
         }
         
-        function updateLocation() {
-            updateStatus('Actualizando ubicaciones...', false);
-            document.querySelectorAll('.coordinates-box').forEach(box => box.classList.add('loading'));
+        let lastConnectionState = null;
+
+        function showNotification(type) {
+            hideAllNotifications();
+            const notification = document.getElementById(type + 'Notification');
+            notification.classList.add('show');
             
+            // Solo auto-ocultar las notificaciones de éxito
+            if (type === 'success') {
+                setTimeout(() => {
+                    hideNotification(type + 'Notification');
+                }, 2000);
+            }
+        }
+
+        function hideAllNotifications() {
+            document.querySelectorAll('.notification').forEach(notification => {
+                notification.classList.remove('show');
+            });
+        }
+
+        function hideNotification(id) {
+            const notification = document.getElementById(id);
+            notification.classList.remove('show');
+        }
+
+        function updateConnectionStatus(isConnected) {
+            if (lastConnectionState !== isConnected) {
+                if (isConnected) {
+                    showNotification('success');
+                    // Actualizar marcadores y estado visual
+                    updateAntennaStatus(true);
+                    // Detener el intervalo de notificaciones de error
+                    if (window.errorNotificationInterval) {
+                        clearInterval(window.errorNotificationInterval);
+                        window.errorNotificationInterval = null;
+                    }
+                    // Hacer zoom a la ubicación más cercana
+                    const activeMarker = markers['oficina'];
+                    if (activeMarker) {
+                        map.flyTo(activeMarker.getLatLng(), 18, {
+                            duration: 2,
+                            easeLinearity: 0.5
+                        });
+                    }
+                } else {
+                    showNotification('error');
+                    // Limpiar marcadores y estado visual
+                    updateAntennaStatus(false);
+                    // Solo hacer zoom out manteniendo el centro actual
+                    const center = map.getCenter();
+                    map.flyTo(center, 8, {  // Zoom level 8 para ver el contexto del área
+                        duration: 2,
+                        easeLinearity: 0.5
+                    });
+                    // Iniciar notificaciones periódicas de error
+                    if (!window.errorNotificationInterval) {
+                        window.errorNotificationInterval = setInterval(() => {
+                            showNotification('error');
+                        }, 5000);
+                    }
+                }
+                lastConnectionState = isConnected;
+            }
+        }
+
+        function updateLocation() {
             fetch('/get_location')
                 .then(response => response.json())
                 .then(data => {
-                    document.querySelectorAll('.coordinates-box').forEach(box => box.classList.remove('loading'));
-                    
                     if (data.error) {
-                        updateStatus(data.error, true);
-                        // Marcar todas las antenas como inactivas cuando hay error
-                        updateAntennaStatus(false);
-                        return;
+                        // Mantener los marcadores pero cambiarlos a estado de error
+                        Object.keys(markers).forEach(id => {
+                            if (markers[id]) {
+                                markers[id].setIcon(errorIcon);
+                            }
+                        });
+                        updateConnectionStatus(false);
+                        throw new Error(data.error);
                     }
                     
+                    updateConnectionStatus(true);
                     // Datos de ejemplo para las otras antenas
                     const locations = {
                         'oficina': {
@@ -907,7 +1042,7 @@
                     
                     // Centrar el mapa solo en la primera carga
                     if (firstLoad) {
-                        map.setView([data.latitude, data.longitude], 16);
+                        map.setView([data.latitude, data.longitude], 18);
                         firstLoad = false;
                     }
                     
@@ -916,10 +1051,14 @@
                     updateAntennaStatus(true);
                 })
                 .catch(error => {
-                    document.querySelectorAll('.coordinates-box').forEach(box => box.classList.remove('loading'));
-                    updateStatus('Error de conexión: ' + error, true);
-                    // Marcar todas las antenas como inactivas cuando hay error
-                    updateAntennaStatus(false);
+                    // Mantener los marcadores pero cambiarlos a estado de error
+                    Object.keys(markers).forEach(id => {
+                        if (markers[id]) {
+                            markers[id].setIcon(errorIcon);
+                        }
+                    });
+                    updateConnectionStatus(false);
+                    console.error('Error:', error);
                 });
         }
         
@@ -938,10 +1077,15 @@
                     statusIndicator.classList.toggle('active', isConnected && isOfficina);
                 }
                 
-                // Remover marcador del mapa si la conexión falla
-                if (!isConnected && markers[id]) {
-                    map.removeLayer(markers[id]);
-                    delete markers[id];
+                // Actualizar marcador en el mapa
+                if (markers[id]) {
+                    if (!isConnected) {
+                        // Cambiar al icono de error
+                        markers[id].setIcon(errorIcon);
+                    } else {
+                        // Cambiar al icono normal
+                        markers[id].setIcon(customIcon);
+                    }
                 }
             });
         }
@@ -950,13 +1094,12 @@
         fetch('/test')
             .then(response => response.json())
             .then(data => {
-                updateStatus('Conectando con el plato...', false);
                 updateLocation();
-                setInterval(updateLocation, 10000);
+                // Verificar cada 1 segundo
+                setInterval(updateLocation, 1000);
             })
             .catch(error => {
-                updateStatus('Error de conexión con el servidor: ' + error, true);
-                updateAntennaStatus(false);
+                updateConnectionStatus(false);
             });
 
         // Añadir esta variable para rastrear el estado de expansión de las tarjetas
@@ -1047,7 +1190,7 @@
 
             const location = locations[selectedId];
             if (location) {
-                map.setView([location.lat, location.lon], 16);
+                map.setView([location.lat, location.lon], 18);
                 
                 // Mostrar el marcador correspondiente
                 Object.keys(markers).forEach(key => {
@@ -1063,5 +1206,32 @@
             }
         });
     </script>
+
+    <!-- Agregar antes del cierre del body -->
+    <div id="errorNotification" class="notification error">
+        <div class="icon">
+            <i class="fas fa-lock"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title">Error al conectar</div>
+            <div class="notification-message">No se está detectando el plato</div>
+        </div>
+        <div class="notification-close" onclick="hideNotification('errorNotification')">
+            <i class="fas fa-times"></i>
+        </div>
+    </div>
+
+    <div id="successNotification" class="notification success">
+        <div class="icon">
+            <i class="fas fa-check"></i>
+        </div>
+        <div class="notification-content">
+            <div class="notification-title">Conectado</div>
+            <div class="notification-message">Ha vuelto la conexión al plato</div>
+        </div>
+        <div class="notification-close" onclick="hideNotification('successNotification')">
+            <i class="fas fa-times"></i>
+        </div>
+    </div>
 </body>
 </html> 

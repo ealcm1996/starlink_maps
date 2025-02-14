@@ -38,11 +38,13 @@ def test_starlink_connection():
 
 def get_starlink_location():
     if os.environ.get('IS_RENDER'):
-        # En Render, retornar ubicación de ejemplo
+        # En Render, retornar ubicación real de la antena
         return {
-            "latitude": 8.286873,
-            "longitude": -62.838161,
-            "altitude": 100
+            "latitude": 8.286873,      # Coordenada real de la antena
+            "longitude": -62.838161,   # Coordenada real de la antena
+            "altitude": 100,           # Altitud aproximada
+            "status": "active",        # Estado activo
+            "id": "oficina"           # ID de la antena
         }
         
     try:
@@ -61,7 +63,9 @@ def get_starlink_location():
         return {
             "latitude": location_data["latitude"],
             "longitude": location_data["longitude"],
-            "altitude": location_data["altitude"]
+            "altitude": location_data["altitude"],
+            "status": "active",
+            "id": "oficina"
         }
         
     except starlink_grpc.GrpcError as e:
