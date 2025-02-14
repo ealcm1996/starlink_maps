@@ -829,6 +829,9 @@
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
     <script>
+        // Añadir versión para forzar actualización
+        const APP_VERSION = '1.0.1';
+        
         // Inicializar el mapa con vista satelital
         var map = L.map('map').setView([0, 0], 2);
         
@@ -959,10 +962,22 @@
             }
         }
 
+        // Modificar la función fetch para evitar caché
+        function fetchLocation() {
+            return fetch('/get_location', {
+                cache: 'no-store',
+                headers: {
+                    'Cache-Control': 'no-cache',
+                    'Pragma': 'no-cache'
+                }
+            });
+        }
+        
         function updateLocation() {
-            fetch('/get_location')
+            fetchLocation()
                 .then(response => response.json())
                 .then(data => {
+                    console.log('Datos recibidos:', data); // Debug
                     if (data.error) {
                         // Mantener los marcadores pero cambiarlos a estado de error
                         Object.keys(markers).forEach(id => {
@@ -1051,6 +1066,7 @@
                     updateAntennaStatus(true);
                 })
                 .catch(error => {
+                    console.error('Error en fetch:', error); // Debug
                     // Mantener los marcadores pero cambiarlos a estado de error
                     Object.keys(markers).forEach(id => {
                         if (markers[id]) {
@@ -1058,7 +1074,6 @@
                         }
                     });
                     updateConnectionStatus(false);
-                    console.error('Error:', error);
                 });
         }
         

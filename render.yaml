@@ -8,4 +8,12 @@ services:
       - key: PYTHON_VERSION
         value: 3.9.0
       - key: IS_RENDER
-        value: true 
+        value: "true"
+      - key: FLASK_ENV
+        value: "production"
+    buildFilter:
+      paths:
+        - templates/**
+        - static/**
+        - "*.py"
+        - requirements.txt 

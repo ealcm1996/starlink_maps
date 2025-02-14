@@ -84,7 +84,10 @@ def index():
 
 @app.route('/get_location')
 def location():
-    return jsonify(get_starlink_location())
+    logger.debug("Recibiendo petición de ubicación")
+    location_data = get_starlink_location()
+    logger.debug(f"Enviando datos: {location_data}")
+    return jsonify(location_data)
 
 @app.route('/test')
 def test():
@@ -109,7 +112,9 @@ def serve_static(filename):
 
 @app.after_request
 def add_header(response):
-    response.headers['Cache-Control'] = 'no-store'
+    response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
     return response
 
 if __name__ == '__main__':
