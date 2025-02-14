@@ -7,10 +7,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.9.0
-      - key: IS_RENDER
-        value: "true"
       - key: FLASK_ENV
         value: "production"
+      - key: NGROK_TOKEN
+        sync: false  # Esto indica que el valor se configurará manualmente
     buildFilter:
       paths:
         - templates/**

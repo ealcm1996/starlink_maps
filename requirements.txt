@@ -14,3 +14,4 @@ gunicorn==20.1.0
 click>=7.1.2
 Jinja2>=3.0
 itsdangerous>=2.0
+pyngrok==7.0.3

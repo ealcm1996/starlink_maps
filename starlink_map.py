@@ -2,6 +2,9 @@ from flask import Flask, render_template, jsonify, send_from_directory, send_fil
 import sys
 import os
 import logging
+from pyngrok import ngrok
+import requests
+import json
 
 # Configurar logging
 logging.basicConfig(level=logging.DEBUG)
@@ -18,10 +21,45 @@ app = Flask(__name__)
 app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
+# Añadir estas variables globales
+NGROK_TUNNEL = None
+STARLINK_LOCAL_URL = "http://192.168.100.1"
+
+def setup_ngrok_tunnel():
+    global NGROK_TUNNEL
+    try:
+        if os.environ.get('RENDER'):
+            # Configurar ngrok con el token (debes configurar esto en las variables de entorno de Render)
+            ngrok_token = os.environ.get('NGROK_TOKEN')
+            if not ngrok_token:
+                logger.error("NGROK_TOKEN no configurado en variables de entorno")
+                return False
+                
+            ngrok.set_auth_token(ngrok_token)
+            
+            # Crear túnel TCP a la IP del Starlink
+            NGROK_TUNNEL = ngrok.connect(STARLINK_LOCAL_URL, "tcp")
+            logger.info(f"Túnel ngrok creado: {NGROK_TUNNEL.public_url}")
+            return True
+    except Exception as e:
+        logger.error(f"Error al crear túnel ngrok: {str(e)}")
+        return False
+    return True
+
 def test_starlink_connection():
     try:
-        # Intentar conectar al plato Starlink
-        context = starlink_grpc.ChannelContext()
+        if os.environ.get('RENDER'):
+            if not NGROK_TUNNEL:
+                if not setup_ngrok_tunnel():
+                    return False
+            
+            # Usar la URL del túnel para conectar
+            base_url = NGROK_TUNNEL.public_url
+            context = starlink_grpc.ChannelContext(target=base_url)
+        else:
+            # Conexión local normal
+            context = starlink_grpc.ChannelContext()
+            
         dish_id = starlink_grpc.get_id(context=context)
         logger.info(f"Conexión exitosa con el plato Starlink. ID: {dish_id}")
         return True
@@ -105,13 +143,16 @@ def add_header(response):
     response.headers['Expires'] = '0'
     return response
 
+# Modificar el main para inicializar el túnel
 if __name__ == '__main__':
     try:
         logger.info("Verificando conexión con el plato Starlink...")
+        if os.environ.get('RENDER'):
+            setup_ngrok_tunnel()
+        
         if test_starlink_connection():
-            logger.info("Iniciando servidor web en http://localhost:5000")
-            # Permitir conexiones desde cualquier IP en la red local
-            app.run(host='0.0.0.0', port=5000, debug=True)
+            logger.info("Iniciando servidor web...")
+            app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
         else:
             logger.error("No se pudo establecer conexión con el plato Starlink")
     except Exception as e:
