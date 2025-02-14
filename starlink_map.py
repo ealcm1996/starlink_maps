@@ -19,9 +19,13 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 def test_starlink_connection():
+    if os.environ.get('IS_RENDER'):
+        # En Render, simular conexión exitosa
+        logger.info("Ejecutando en Render, simulando conexión exitosa")
+        return True
+        
     try:
         context = starlink_grpc.ChannelContext()
-        # Intentar obtener el ID del plato como prueba de conexión
         dish_id = starlink_grpc.get_id(context=context)
         logger.info(f"Conexión exitosa con el plato Starlink. ID: {dish_id}")
         return True
@@ -33,6 +37,14 @@ def test_starlink_connection():
             context.close()
 
 def get_starlink_location():
+    if os.environ.get('IS_RENDER'):
+        # En Render, retornar ubicación de ejemplo
+        return {
+            "latitude": 8.286873,
+            "longitude": -62.838161,
+            "altitude": 100
+        }
+        
     try:
         logger.debug("Intentando obtener ubicación del plato...")
         context = starlink_grpc.ChannelContext()

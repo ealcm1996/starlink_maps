@@ -1,0 +1,30 @@
+Para instalar y configurar el proyecto para que se ejecute automáticamente al iniciar Windows, sigue estos pasos:
+
+1. Requisitos previos:
+# Instalar Python (3.8 o superior)
+# Instalar Git
+
+2. Clonar el repositorio:
+git clone https://github.com/ealcm1996/starlink_maps.git
+cd starlink_maps
+
+3. Crear y activar entorno virtual:
+python -m venv venv
+.\venv\Scripts\activate
+
+4. Instalar dependencias:
+pip install -r requirements.txt
+
+5. Crear un archivo batch para iniciar el servidor (crear archivo start_starlink.bat):
+@echo off
+cd C:\ruta\a\tu\proyecto\starlink_maps
+call venv\Scripts\activate
+python starlink_map.py
+
+6. Configurar inicio automático:
+Presiona Windows + R
+Escribe shell:startup
+Crea un acceso directo al archivo start_starlink.bat en esta carpeta.
+
+7. Para acceder al monitor:
+http://localhost:5000
