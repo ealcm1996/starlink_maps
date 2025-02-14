@@ -19,12 +19,8 @@ app.config['TEMPLATES_AUTO_RELOAD'] = True
 app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
 
 def test_starlink_connection():
-    if os.environ.get('IS_RENDER'):
-        # En Render, simular conexión exitosa
-        logger.info("Ejecutando en Render, simulando conexión exitosa")
-        return True
-        
     try:
+        # Intentar conectar al plato Starlink
         context = starlink_grpc.ChannelContext()
         dish_id = starlink_grpc.get_id(context=context)
         logger.info(f"Conexión exitosa con el plato Starlink. ID: {dish_id}")
@@ -37,17 +33,12 @@ def test_starlink_connection():
             context.close()
 
 def get_starlink_location():
-    if os.environ.get('IS_RENDER'):
-        # En Render, retornar ubicación real de la antena
-        return {
-            "latitude": 8.286873,      # Coordenada real de la antena
-            "longitude": -62.838161,   # Coordenada real de la antena
-            "altitude": 100,           # Altitud aproximada
-            "status": "active",        # Estado activo
-            "id": "oficina"           # ID de la antena
-        }
-        
     try:
+        # Primero verificar si hay conexión
+        if not test_starlink_connection():
+            logger.error("No hay conexión con el plato Starlink")
+            return {"error": "No se detecta conexión con el plato Starlink"}
+            
         logger.debug("Intentando obtener ubicación del plato...")
         context = starlink_grpc.ChannelContext()
         location_data = starlink_grpc.location_data(context=context)
@@ -68,12 +59,9 @@ def get_starlink_location():
             "id": "oficina"
         }
         
-    except starlink_grpc.GrpcError as e:
-        logger.error(f"Error de gRPC: {str(e)}")
-        return {"error": f"Error de conexión con el plato: {str(e)}"}
     except Exception as e:
-        logger.error(f"Error inesperado: {str(e)}", exc_info=True)
-        return {"error": f"Error inesperado: {str(e)}"}
+        logger.error(f"Error al obtener ubicación: {str(e)}")
+        return {"error": f"Error de conexión con el plato: {str(e)}"}
     finally:
         if 'context' in locals():
             context.close()
