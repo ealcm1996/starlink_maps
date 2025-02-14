@@ -242,3 +242,4 @@ No further data collection functionality is planned at this time. If there's som
 
 [starlink-cli](https://github.com/starlink-community/starlink-cli) is another command line tool for interacting with the Starlink gRPC services, including the one on the Starlink router, in case Go is more your thing.
 # starlink_maps
+# starlink_maps
