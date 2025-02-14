@@ -241,3 +241,4 @@ No further data collection functionality is planned at this time. If there's som
 [ChuckTSI's Better Than Nothing Web Interface](https://github.com/ChuckTSI/BetterThanNothingWebInterface) uses grpcurl and PHP to provide a spiffy web UI for some of the same data this project works on.
 
 [starlink-cli](https://github.com/starlink-community/starlink-cli) is another command line tool for interacting with the Starlink gRPC services, including the one on the Starlink router, in case Go is more your thing.
+# starlink_maps
